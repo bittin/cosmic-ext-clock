@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Clock
+Comment=Track time around the world with alarms, timers, and a stopwatch
+Keywords=clock;world clock;alarm;timer;stopwatch;time;timezone;
+Exec=clock
+Icon=org.cosmic_utils.clock
+Terminal=false
+Type=Application
+Categories=Utility;Clock;
+StartupNotify=true
+StartupWMClass=org.cosmic_utils.clock

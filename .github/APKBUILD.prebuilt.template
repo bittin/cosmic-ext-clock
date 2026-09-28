@@ -1,0 +1,20 @@
+# Packaging-only recipe for a prebuilt binary
+pkgname=cosmic-ext-clock
+pkgver=@@VERSION@@
+pkgrel=0
+pkgdesc="World clock, alarms, timers, and stopwatch for COSMIC"
+url="https://cosmic-utils.org"
+arch="all"
+license="GPL-3.0-only"
+
+build() { :; }
+package() {
+    install -Dm0755 /prebuilt/clock "$pkgdir/usr/bin/clock"
+    cd /src
+    install -Dm0644 resources/org.cosmic_utils.clock.desktop "$pkgdir/usr/share/applications/org.cosmic_utils.clock.desktop"
+    install -Dm0644 resources/org.cosmic_utils.clock.metainfo.xml "$pkgdir/usr/share/metainfo/org.cosmic_utils.clock.metainfo.xml"
+    install -Dm0644 resources/icons/hicolor/scalable/apps/org.cosmic_utils.clock.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/org.cosmic_utils.clock.svg"
+    for size in 16x16 24x24 32x32 48x48 64x64 128x128 256x256 512x512 1024x1024; do
+        install -Dm0644 "resources/icons/hicolor/$size/apps/org.cosmic_utils.clock.png" "$pkgdir/usr/share/icons/hicolor/$size/apps/org.cosmic_utils.clock.png"
+    done
+}

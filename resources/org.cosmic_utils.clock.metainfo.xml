@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>org.cosmic_utils.clock</id>
+  <name>Clock</name>
+  <summary>A polished clock for COSMIC desktops and phones</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-only</project_license>
+  <developer id="io.github.cosmic-utils">
+    <name>Cosmic Utils</name>
+  </developer>
+  <description>
+    <p>Clock combines international times, local alarms, multiple timers, and a precise stopwatch in a responsive libcosmic interface.</p>
+  </description>
+  <launchable type="desktop-id">org.cosmic_utils.clock.desktop</launchable>
+  <url type="homepage">https://cosmic-utils.org</url>
+  <url type="bugtracker">https://github.com/cosmic-utils/cosmic-ext-clock/issues</url>
+  <provides>
+    <binary>clock</binary>
+  </provides>
+  <content_rating type="oars-1.1" />
+  <screenshots>
+    <screenshot type="default">
+      <image>https://media.githubusercontent.com/media/cosmic-utils/cosmic-ext-clock/main/preview/preview-001.png</image>
+      <caption>Four world clocks on a desktop</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://media.githubusercontent.com/media/cosmic-utils/cosmic-ext-clock/main/preview/preview-002.png</image>
+      <caption>Four world clocks on a Linux phone</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://media.githubusercontent.com/media/cosmic-utils/cosmic-ext-clock/main/preview/preview-003.png</image>
+      <caption>A populated alarm list on a desktop</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://media.githubusercontent.com/media/cosmic-utils/cosmic-ext-clock/main/preview/preview-004.png</image>
+      <caption>A populated alarm list on a Linux phone</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://media.githubusercontent.com/media/cosmic-utils/cosmic-ext-clock/main/preview/preview-005.png</image>
+      <caption>Ready, paused, and running timers on a desktop</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://media.githubusercontent.com/media/cosmic-utils/cosmic-ext-clock/main/preview/preview-006.png</image>
+      <caption>Ready, paused, and running timers on a Linux phone</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://media.githubusercontent.com/media/cosmic-utils/cosmic-ext-clock/main/preview/preview-007.png</image>
+      <caption>A stopwatch with recorded laps on a desktop</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://media.githubusercontent.com/media/cosmic-utils/cosmic-ext-clock/main/preview/preview-008.png</image>
+      <caption>A stopwatch with recorded laps on a Linux phone</caption>
+    </screenshot>
+  </screenshots>
+  <releases>
+    <release version="0.1.0" date="2026-09-27">
+      <description><p>Initial release.</p></description>
+    </release>
+  </releases>
+</component>

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" fill="none">
+  <circle cx="128" cy="128" r="112" fill="url(#rim)"/>
+  <circle cx="128" cy="128" r="104" fill="url(#body)"/>
+  <circle cx="128" cy="128" r="84" fill="url(#face)"/>
+  <g stroke="#102A4C" stroke-width="8" stroke-linecap="round">
+    <path d="M128 58V70"/>
+    <path d="M128 186V198"/>
+    <path d="M58 128H70"/>
+    <path d="M186 128H198"/>
+  </g>
+  <path d="M128 128V82" stroke="#102A4C" stroke-width="11" stroke-linecap="round"/>
+  <path d="M128 128L164 154" stroke="#FFAD00" stroke-width="11" stroke-linecap="round"/>
+  <circle cx="128" cy="128" r="9" fill="#102A4C"/>
+  <defs>
+    <linearGradient id="rim" x1="232" y1="24" x2="24" y2="232" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#BEBEBE"/>
+      <stop offset="1" stop-color="#9E9E9E"/>
+    </linearGradient>
+    <linearGradient id="body" x1="218" y1="38" x2="38" y2="218" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#82A1CA"/>
+      <stop offset="1" stop-color="#6582AA"/>
+    </linearGradient>
+    <linearGradient id="face" x1="188" y1="68" x2="68" y2="188" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FAFCFF"/>
+      <stop offset="1" stop-color="#E4F0FF"/>
+    </linearGradient>
+  </defs>
+</svg>

@@ -1,0 +1,47 @@
+app-id: org.cosmic_utils.clock
+runtime: org.freedesktop.Platform
+runtime-version: '25.08'
+sdk: org.freedesktop.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+base: com.system76.Cosmic.BaseApp
+base-version: stable
+command: clock
+
+finish-args:
+  - --socket=wayland
+  - --share=ipc
+  - --socket=fallback-x11
+  - --socket=pulseaudio
+  - --device=dri
+  - --filesystem=xdg-config/cosmic:ro
+  - --talk-name=com.system76.CosmicSettingsDaemon
+  - --talk-name=com.system76.CosmicSettingsDaemon.*
+  - --talk-name=org.freedesktop.Notifications
+
+modules:
+  - name: clock
+    buildsystem: simple
+    build-options:
+      append-path: /usr/lib/sdk/rust-stable/bin
+      env:
+        CARGO_HOME: /run/build/clock/cargo
+        CARGO_TARGET_DIR: /run/build/clock/target
+    build-commands:
+      - test ! -f .flatpak-version || export CLOCK_VERSION=$(cat .flatpak-version); cargo --offline build --release
+      - install -Dm755 target/release/clock -t /app/bin/
+      - install -Dm644 resources/org.cosmic_utils.clock.desktop -t /app/share/applications/
+      - install -Dm644 resources/org.cosmic_utils.clock.metainfo.xml -t /app/share/metainfo/
+      - install -Dm644 resources/icons/hicolor/scalable/apps/org.cosmic_utils.clock.svg -t /app/share/icons/hicolor/scalable/apps/
+      - install -Dm644 resources/icons/hicolor/16x16/apps/org.cosmic_utils.clock.png -t /app/share/icons/hicolor/16x16/apps/
+      - install -Dm644 resources/icons/hicolor/24x24/apps/org.cosmic_utils.clock.png -t /app/share/icons/hicolor/24x24/apps/
+      - install -Dm644 resources/icons/hicolor/32x32/apps/org.cosmic_utils.clock.png -t /app/share/icons/hicolor/32x32/apps/
+      - install -Dm644 resources/icons/hicolor/48x48/apps/org.cosmic_utils.clock.png -t /app/share/icons/hicolor/48x48/apps/
+      - install -Dm644 resources/icons/hicolor/64x64/apps/org.cosmic_utils.clock.png -t /app/share/icons/hicolor/64x64/apps/
+      - install -Dm644 resources/icons/hicolor/128x128/apps/org.cosmic_utils.clock.png -t /app/share/icons/hicolor/128x128/apps/
+      - install -Dm644 resources/icons/hicolor/256x256/apps/org.cosmic_utils.clock.png -t /app/share/icons/hicolor/256x256/apps/
+      - install -Dm644 resources/icons/hicolor/512x512/apps/org.cosmic_utils.clock.png -t /app/share/icons/hicolor/512x512/apps/
+    sources:
+      - type: dir
+        path: .
+      - cargo-sources.json
