@@ -1,5 +1,10 @@
 # Clock
 
+[![Sponsor](https://img.shields.io/badge/sponsor-FreddyFunk-ea4aaa?logo=github-sponsors)](https://github.com/sponsors/FreddyFunk)
+[![CI](https://github.com/cosmic-utils/cosmic-ext-clock/actions/workflows/ci.yml/badge.svg)](https://github.com/cosmic-utils/cosmic-ext-clock/actions/workflows/ci.yml)
+[![Release](https://github.com/cosmic-utils/cosmic-ext-clock/actions/workflows/release.yml/badge.svg)](https://github.com/cosmic-utils/cosmic-ext-clock/actions/workflows/release.yml)
+[![Translation status](https://hosted.weblate.org/widget/cosmic-utils/clock/svg-badge.svg)](https://hosted.weblate.org/engage/cosmic-utils/)
+
 A responsive clock application for COSMIC desktops and Linux phones, built with [libcosmic](https://github.com/pop-os/libcosmic).
 
 <p>
