@@ -25,7 +25,7 @@ use cosmic::{
     cosmic_config::{Config, ConfigGet, ConfigSet},
     executor,
     iced::{
-        Alignment, Length, Subscription,
+        Alignment, Background, Border, Length, Shadow, Subscription, mouse,
         widget::{column, row},
     },
     surface, theme,
@@ -189,6 +189,7 @@ pub enum Message {
     ToggleTimer(usize),
     ResetTimer(usize),
     RemoveTimer(usize),
+    CollectionTileHover(CollectionTile, bool),
     ToggleStopwatch,
     ResetStopwatch,
     AddLap,
@@ -214,6 +215,13 @@ impl menu::action::MenuAction for MenuItemAction {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum AlarmRepeatAction {
     Toggle(AlarmDay),
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum CollectionTile {
+    WorldClock(usize),
+    Alarm(usize),
+    Timer(TimerId),
 }
 
 impl menu::action::MenuAction for AlarmRepeatAction {
@@ -277,11 +285,13 @@ pub struct ClockApp {
     timer_form_open: bool,
     editing_timer: Option<TimerId>,
     next_timer_id: u64,
+    hovered_collection_tile: Option<CollectionTile>,
     stopwatch: Stopwatch,
 }
 
 impl ClockApp {
     fn toggle_context_page(&mut self, page: ContextPage) {
+        clear_collection_tile_hover(&mut self.hovered_collection_tile);
         if self.core.window.show_context && self.context_page == page {
             self.core.window.show_context = false;
         } else {
@@ -365,6 +375,7 @@ impl ClockApp {
         let local_date = local_now.date_naive();
         let mut clocks = column![].spacing(12);
         for (index, clock) in self.world_clocks.iter().enumerate() {
+            let tile = CollectionTile::WorldClock(index);
             let mut details = vec![relative_offset_text(relative_offset_minutes(
                 now,
                 clock.timezone,
@@ -388,16 +399,24 @@ impl ClockApp {
             .spacing(16)
             .align_y(Alignment::Center);
             clocks = clocks.push(
-                widget::button::custom(
-                    widget::container(card)
-                        .padding(16)
-                        .width(Length::Fill)
-                        .class(theme::Container::Card),
+                widget::mouse_area(
+                    widget::container(
+                        widget::button::custom(card)
+                            .padding(0)
+                            .width(Length::Fill)
+                            .class(collection_tile_edit_button())
+                            .on_press(Message::EditWorldClock(index)),
+                    )
+                    .padding(16)
+                    .width(Length::Fill)
+                    .class(collection_tile_container(
+                        collection_tile_is_hovered(self.hovered_collection_tile, tile),
+                    )),
                 )
-                .padding(0)
-                .width(Length::Fill)
-                .class(theme::Button::Text)
-                .on_press(Message::EditWorldClock(index)),
+                .on_enter(Message::CollectionTileHover(tile, true))
+                .on_exit(Message::CollectionTileHover(tile, false))
+                .on_release(Message::EditWorldClock(index))
+                .interaction(mouse::Interaction::Pointer),
             );
         }
         if self.world_clocks.is_empty() {
@@ -627,6 +646,7 @@ impl ClockApp {
 
         let mut list = column![].spacing(12);
         for (index, alarm) in self.alarms.iter().enumerate() {
+            let tile = CollectionTile::Alarm(index);
             let is_snoozed = self
                 .snoozed_alarm
                 .is_some_and(|(snoozed_index, _)| snoozed_index == index);
@@ -647,17 +667,26 @@ impl ClockApp {
                 widget::button::custom(details)
                     .padding(0)
                     .width(Length::Fill)
-                    .class(theme::Button::Text)
+                    .class(collection_tile_edit_button())
                     .on_press(Message::EditAlarm(index)),
                 controls,
             ]
             .spacing(16)
             .align_y(Alignment::Center);
             list = list.push(
-                widget::container(alarm_row)
-                    .padding(16)
-                    .width(Length::Fill)
-                    .class(theme::Container::Card),
+                widget::mouse_area(
+                    widget::container(alarm_row)
+                        .padding(16)
+                        .width(Length::Fill)
+                        .class(collection_tile_container(collection_tile_is_hovered(
+                            self.hovered_collection_tile,
+                            tile,
+                        ))),
+                )
+                .on_enter(Message::CollectionTileHover(tile, true))
+                .on_exit(Message::CollectionTileHover(tile, false))
+                .on_release(Message::EditAlarm(index))
+                .interaction(mouse::Interaction::Pointer),
             );
         }
 
@@ -713,6 +742,7 @@ impl ClockApp {
     fn timers_view(&self) -> Element<'_, Message> {
         let mut list = column![].spacing(12);
         for (index, timer) in self.timers.iter().enumerate() {
+            let tile = CollectionTile::Timer(timer.id());
             let remaining = timer.remaining_at(self.now_instant);
             let status = if timer.is_ringing() {
                 fl!("timer-ringing")
@@ -756,7 +786,7 @@ impl ClockApp {
                 )
                 .padding(0)
                 .width(Length::Fill)
-                .class(theme::Button::Text)
+                .class(collection_tile_edit_button())
                 .on_press(Message::EditTimer(index)),
                 widget::container(controls)
                     .width(Length::Fill)
@@ -764,10 +794,19 @@ impl ClockApp {
             ]
             .spacing(12);
             list = list.push(
-                widget::container(row)
-                    .padding(16)
-                    .width(Length::Fill)
-                    .class(theme::Container::Card),
+                widget::mouse_area(
+                    widget::container(row)
+                        .padding(16)
+                        .width(Length::Fill)
+                        .class(collection_tile_container(collection_tile_is_hovered(
+                            self.hovered_collection_tile,
+                            tile,
+                        ))),
+                )
+                .on_enter(Message::CollectionTileHover(tile, true))
+                .on_exit(Message::CollectionTileHover(tile, false))
+                .on_release(Message::EditTimer(index))
+                .interaction(mouse::Interaction::Pointer),
             );
         }
         if self.timers.is_empty() {
@@ -999,6 +1038,7 @@ impl Application for ClockApp {
                 timer_form_open: false,
                 editing_timer: None,
                 next_timer_id: if flags.preview { 4 } else { 1 },
+                hovered_collection_tile: None,
                 stopwatch: preview_data
                     .map_or_else(Stopwatch::default, |preview| preview.stopwatch),
             },
@@ -1011,6 +1051,7 @@ impl Application for ClockApp {
     }
 
     fn on_nav_select(&mut self, id: nav_bar::Id) -> cosmic::app::Task<Self::Message> {
+        clear_collection_tile_hover(&mut self.hovered_collection_tile);
         self.nav_model.activate(id);
         cosmic::app::Task::none()
     }
@@ -1142,6 +1183,7 @@ impl Application for ClockApp {
                 return cosmic::command::set_theme(self.app_theme.theme());
             }
             Message::ResetAllSettings => {
+                self.hovered_collection_tile = None;
                 let defaults = PersistentState::default();
                 self.world_clocks = defaults.world_clocks;
                 self.editing_world_clock = None;
@@ -1154,17 +1196,25 @@ impl Application for ClockApp {
                 return cosmic::command::set_theme(self.app_theme.theme());
             }
             Message::OpenCityPicker => {
+                clear_collection_tile_hover(&mut self.hovered_collection_tile);
                 self.editing_world_clock = None;
                 self.city_picker_open = true;
                 self.city_search.clear();
                 return widget::text_input::focus(self.city_search_id.clone());
             }
             Message::CloseCityPicker => {
+                clear_collection_tile_hover(&mut self.hovered_collection_tile);
                 self.city_picker_open = false;
                 self.city_search.clear();
             }
-            Message::CitySearchChanged(value) => self.city_search = value,
-            Message::ClearCitySearch => self.city_search.clear(),
+            Message::CitySearchChanged(value) => {
+                clear_collection_tile_hover(&mut self.hovered_collection_tile);
+                self.city_search = value;
+            }
+            Message::ClearCitySearch => {
+                clear_collection_tile_hover(&mut self.hovered_collection_tile);
+                self.city_search.clear();
+            }
             Message::AddWorldClock(city_index) => {
                 if let Some((name, timezone)) = city_catalog().get(city_index)
                     && !self
@@ -1173,6 +1223,7 @@ impl Application for ClockApp {
                         .any(|clock| clock.timezone.name() == *timezone)
                     && let Some(clock) = WorldClock::new(name.clone(), timezone)
                 {
+                    clear_collection_tile_hover(&mut self.hovered_collection_tile);
                     self.world_clocks.push(clock);
                     self.city_picker_open = false;
                     self.city_search.clear();
@@ -1181,6 +1232,7 @@ impl Application for ClockApp {
             }
             Message::EditWorldClock(index) => {
                 if index < self.world_clocks.len() {
+                    clear_collection_tile_hover(&mut self.hovered_collection_tile);
                     self.editing_world_clock = Some(index);
                     self.city_picker_open = false;
                 }
@@ -1188,12 +1240,14 @@ impl Application for ClockApp {
             Message::CancelWorldClockEdit => self.editing_world_clock = None,
             Message::RemoveWorldClock(index) => {
                 if index < self.world_clocks.len() {
+                    clear_collection_tile_hover(&mut self.hovered_collection_tile);
                     self.world_clocks.remove(index);
                     self.editing_world_clock = None;
                     self.save();
                 }
             }
             Message::OpenAlarmForm => {
+                clear_collection_tile_hover(&mut self.hovered_collection_tile);
                 self.editing_alarm = None;
                 self.alarm_draft = AlarmDraft::default();
                 self.alarm_form_open = true;
@@ -1201,6 +1255,7 @@ impl Application for ClockApp {
             }
             Message::EditAlarm(index) => {
                 if let Some(alarm) = self.alarms.get(index) {
+                    clear_collection_tile_hover(&mut self.hovered_collection_tile);
                     self.editing_alarm = Some(index);
                     self.alarm_draft = AlarmDraft::from_alarm(alarm);
                     self.alarm_form_open = true;
@@ -1208,6 +1263,7 @@ impl Application for ClockApp {
                 }
             }
             Message::CancelAlarmForm => {
+                clear_collection_tile_hover(&mut self.hovered_collection_tile);
                 self.alarm_form_open = false;
                 self.editing_alarm = None;
                 self.alarm_draft = AlarmDraft::default();
@@ -1244,6 +1300,7 @@ impl Application for ClockApp {
                     false
                 };
                 if saved {
+                    clear_collection_tile_hover(&mut self.hovered_collection_tile);
                     self.alarm_form_open = false;
                     self.editing_alarm = None;
                     self.alarm_draft = AlarmDraft::default();
@@ -1261,6 +1318,7 @@ impl Application for ClockApp {
             }
             Message::RemoveAlarm(index) => {
                 if index < self.alarms.len() {
+                    clear_collection_tile_hover(&mut self.hovered_collection_tile);
                     self.alarms.remove(index);
                     match self.editing_alarm {
                         Some(editing) if editing == index => {
@@ -1303,6 +1361,7 @@ impl Application for ClockApp {
             Message::TimerMinutesChanged(value) => self.timer_minutes = digits_only(value, 3),
             Message::TimerSecondsChanged(value) => self.timer_seconds = digits_only(value, 2),
             Message::OpenTimerForm => {
+                clear_collection_tile_hover(&mut self.hovered_collection_tile);
                 self.timer_form_open = true;
                 self.editing_timer = None;
                 self.timer_label.clear();
@@ -1335,6 +1394,7 @@ impl Application for ClockApp {
                     }
                 };
                 if saved {
+                    clear_collection_tile_hover(&mut self.hovered_collection_tile);
                     self.timer_form_open = false;
                     self.editing_timer = None;
                     self.timer_label.clear();
@@ -1344,6 +1404,7 @@ impl Application for ClockApp {
             }
             Message::EditTimer(index) => {
                 if let Some(timer) = self.timers.get(index) {
+                    clear_collection_tile_hover(&mut self.hovered_collection_tile);
                     let total_seconds = timer.duration().as_secs();
                     self.timer_form_open = true;
                     self.editing_timer = Some(timer.id());
@@ -1353,6 +1414,7 @@ impl Application for ClockApp {
                 }
             }
             Message::CancelTimerForm => {
+                clear_collection_tile_hover(&mut self.hovered_collection_tile);
                 self.timer_form_open = false;
                 self.editing_timer = None;
                 self.timer_label.clear();
@@ -1379,6 +1441,7 @@ impl Application for ClockApp {
             }
             Message::RemoveTimer(index) => {
                 if index < self.timers.len() {
+                    clear_collection_tile_hover(&mut self.hovered_collection_tile);
                     let timer_id = self.timers[index].id();
                     close_timer_notification(timer_id);
                     self.timers.remove(index);
@@ -1390,6 +1453,10 @@ impl Application for ClockApp {
                         self.timer_seconds.clear();
                     }
                 }
+            }
+            Message::CollectionTileHover(tile, hovered) => {
+                self.hovered_collection_tile =
+                    update_collection_tile_hover(self.hovered_collection_tile, tile, hovered);
             }
             Message::ToggleStopwatch => {
                 if self.stopwatch.is_running() {
@@ -1637,6 +1704,83 @@ pub fn format_duration(duration: Duration, show_millis: bool) -> String {
 
 fn alarm_entry_summary(alarm: &Alarm) -> String {
     alarm.time_text()
+}
+
+fn collection_tile_container(hovered: bool) -> theme::Container<'static> {
+    theme::Container::custom(move |theme| {
+        let cosmic = theme.cosmic();
+        let component = &theme.current_container().component;
+        cosmic::iced::widget::container::Style {
+            icon_color: Some(component.on.into()),
+            text_color: Some(component.on.into()),
+            background: Some(Background::Color(
+                if hovered {
+                    component.hover
+                } else {
+                    component.base
+                }
+                .into(),
+            )),
+            border: Border {
+                radius: cosmic.corner_radii.radius_s.into(),
+                ..Default::default()
+            },
+            shadow: Shadow::default(),
+            snap: true,
+        }
+    })
+}
+
+fn collection_tile_edit_button() -> theme::Button {
+    theme::Button::Custom {
+        active: Box::new(|focused, theme| collection_tile_edit_button_style(theme, focused, false)),
+        disabled: Box::new(|theme| collection_tile_edit_button_style(theme, false, true)),
+        hovered: Box::new(|focused, theme| {
+            collection_tile_edit_button_style(theme, focused, false)
+        }),
+        pressed: Box::new(|focused, theme| {
+            collection_tile_edit_button_style(theme, focused, false)
+        }),
+    }
+}
+
+fn collection_tile_edit_button_style(
+    theme: &Theme,
+    focused: bool,
+    disabled: bool,
+) -> cosmic::widget::button::Style {
+    use cosmic::widget::button::Catalog;
+
+    let mut style = if disabled {
+        theme.disabled(&theme::Button::Text)
+    } else {
+        theme.active(focused, false, &theme::Button::Text)
+    };
+    style.background = None;
+    style.overlay = None;
+    style
+}
+
+fn collection_tile_is_hovered(hovered_tile: Option<CollectionTile>, tile: CollectionTile) -> bool {
+    matches!(hovered_tile, Some(hovered) if hovered == tile)
+}
+
+fn update_collection_tile_hover(
+    hovered_tile: Option<CollectionTile>,
+    tile: CollectionTile,
+    hovered: bool,
+) -> Option<CollectionTile> {
+    if hovered {
+        Some(tile)
+    } else if collection_tile_is_hovered(hovered_tile, tile) {
+        None
+    } else {
+        hovered_tile
+    }
+}
+
+fn clear_collection_tile_hover(hovered_tile: &mut Option<CollectionTile>) {
+    *hovered_tile = None;
 }
 
 const fn show_collection_list(item_count: usize, editing: bool) -> bool {
