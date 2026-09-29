@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
-use chrono::{DateTime, Offset, TimeZone, Utc};
+use chrono::{DateTime, NaiveDate, Offset, TimeZone, Utc};
 use chrono_tz::{TZ_VARIANTS, Tz};
 use serde::{Deserialize, Serialize};
 use std::sync::LazyLock;
@@ -87,6 +87,28 @@ pub fn format_utc_offset(seconds: i32) -> String {
         total_minutes / 60,
         total_minutes % 60
     )
+}
+
+#[must_use]
+pub fn relative_offset_minutes(
+    now: DateTime<Utc>,
+    timezone: Tz,
+    reference_offset_seconds: i32,
+) -> i32 {
+    let timezone_offset = now
+        .with_timezone(&timezone)
+        .offset()
+        .fix()
+        .local_minus_utc();
+    (timezone_offset - reference_offset_seconds) / 60
+}
+
+#[must_use]
+pub fn relative_day_offset(now: DateTime<Utc>, timezone: Tz, reference_date: NaiveDate) -> i64 {
+    now.with_timezone(&timezone)
+        .date_naive()
+        .signed_duration_since(reference_date)
+        .num_days()
 }
 
 #[must_use]

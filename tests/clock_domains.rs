@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
-use chrono::{Datelike, TimeZone, Utc, Weekday};
+use chrono::{Datelike, NaiveDate, TimeZone, Utc, Weekday};
 use clock::{
     alarms::{Alarm, AlarmDay, AlarmDraft, alarm_should_ring, weekday_order_for_locale},
     alerts::{AlertAction, AlertEvent, bundled_alarm_sound},
@@ -9,7 +9,8 @@ use clock::{
     timers::{Timer, TimerId, TimerStatus},
     world_clocks::{
         WorldClock, city_catalog, format_utc_offset, initial_world_clocks, preview_timestamp,
-        preview_world_clocks, world_clock_for_timezone,
+        preview_world_clocks, relative_day_offset, relative_offset_minutes,
+        world_clock_for_timezone,
     },
 };
 use notify_rust::{CloseReason, NotificationResponse};
@@ -106,6 +107,45 @@ fn world_clock_formats_local_time_and_offset() {
     assert_eq!(clock.date_text(now), "Thu, Jan 15");
     assert_eq!(format_utc_offset(clock.offset_seconds(now)), "UTC+09:00");
     assert!(WorldClock::new("Invalid", "Mars/Olympus").is_none());
+}
+
+#[test]
+fn world_clock_compares_its_offset_with_the_system_timezone() {
+    let now = Utc.with_ymd_and_hms(2026, 9, 29, 7, 57, 0).unwrap();
+    let local_offset_seconds = 5 * 60 * 60 + 30 * 60;
+
+    assert_eq!(
+        relative_offset_minutes(now, chrono_tz::America::Denver, local_offset_seconds),
+        -690
+    );
+    assert_eq!(
+        relative_offset_minutes(now, chrono_tz::Europe::Warsaw, local_offset_seconds),
+        -210
+    );
+    assert_eq!(
+        relative_offset_minutes(now, chrono_tz::Asia::Tokyo, local_offset_seconds),
+        210
+    );
+}
+
+#[test]
+fn world_clock_reports_calendar_day_changes_relative_to_local_time() {
+    let local_date = NaiveDate::from_ymd_opt(2026, 9, 29).unwrap();
+    let early_utc = Utc.with_ymd_and_hms(2026, 9, 29, 1, 0, 0).unwrap();
+    let late_utc = Utc.with_ymd_and_hms(2026, 9, 29, 15, 0, 0).unwrap();
+
+    assert_eq!(
+        relative_day_offset(early_utc, chrono_tz::America::Los_Angeles, local_date),
+        -1
+    );
+    assert_eq!(
+        relative_day_offset(early_utc, chrono_tz::Asia::Tokyo, local_date),
+        0
+    );
+    assert_eq!(
+        relative_day_offset(late_utc, chrono_tz::Pacific::Kiritimati, local_date),
+        1
+    );
 }
 
 #[test]
