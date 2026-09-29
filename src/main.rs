@@ -79,6 +79,39 @@ fn parse_window_size(value: &str) -> Result<(f32, f32), String> {
     Ok((width, height))
 }
 
+fn regional_locale_with(
+    ui_locale: &str,
+    mut read_variable: impl FnMut(&str) -> Option<String>,
+) -> String {
+    for variable in ["LC_TIME", "LC_ALL", "LANG"] {
+        if let Some(locale) = read_variable(variable).and_then(|value| normalized_locale(&value)) {
+            return locale;
+        }
+    }
+    normalized_locale(ui_locale).unwrap_or_else(|| "en-US".to_owned())
+}
+
+fn normalized_locale(locale: &str) -> Option<String> {
+    let locale = locale
+        .split(['.', '@'])
+        .next()
+        .unwrap_or(locale)
+        .replace('_', "-");
+    if locale
+        .replace('-', "_")
+        .parse::<chrono::format::Locale>()
+        .is_ok()
+    {
+        return Some(locale);
+    }
+
+    let language = locale.split('-').next()?;
+    language
+        .parse::<chrono::format::Locale>()
+        .is_ok()
+        .then(|| language.to_owned())
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt()
         .with_env_filter(
@@ -89,10 +122,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let cli = Cli::parse();
     let requested_languages = DesktopLanguageRequester::requested_languages();
-    let locale = requested_languages
+    let ui_locale = requested_languages
         .first()
         .map(ToString::to_string)
         .unwrap_or_else(|| "en-US".to_owned());
+    let locale = regional_locale_with(&ui_locale, |name| std::env::var(name).ok());
     clock::i18n::init(&requested_languages);
     let window_size = cli.preview_window.unwrap_or((900.0, 640.0));
     let settings = cosmic::app::Settings::default()
@@ -142,5 +176,17 @@ mod tests {
     #[test]
     fn cli_uses_the_build_version() {
         assert_eq!(Cli::command().get_version(), Some(env!("GIT_VERSION")));
+    }
+
+    #[test]
+    fn regional_locale_prefers_lc_time_over_ui_language() {
+        let locale = regional_locale_with("en-US", |name| match name {
+            "LC_TIME" => Some("de_DE.UTF-8".to_owned()),
+            "LC_ALL" | "LANG" => Some("en_US.UTF-8".to_owned()),
+            _ => None,
+        });
+
+        assert_eq!(locale, "de-DE");
+        assert_eq!(regional_locale_with("fr-FR", |_| None), "fr-FR");
     }
 }
