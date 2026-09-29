@@ -2,7 +2,9 @@
 
 use chrono::{Datelike, NaiveDate, TimeZone, Utc, Weekday};
 use clock::{
-    alarms::{Alarm, AlarmDay, AlarmDraft, alarm_should_ring, weekday_order_for_locale},
+    alarms::{
+        Alarm, AlarmDay, AlarmDraft, AlarmPeriod, alarm_should_ring, weekday_order_for_locale,
+    },
     alerts::{AlertAction, AlertEvent, bundled_alarm_sound},
     preview::preview_data,
     stopwatch::Stopwatch,
@@ -282,7 +284,6 @@ fn beginning_to_ring_does_not_disable_an_alarm() {
 
     assert!(alarm.enabled);
     assert_eq!(ringing.label, "Morning");
-    assert_eq!(ringing.time, "07:30");
     assert_eq!(ringing.snooze_minutes, Some(5));
 }
 
@@ -334,6 +335,43 @@ fn alarm_draft_does_not_require_duration_when_snooze_is_disabled() {
     let alarm = draft.build().expect("disabled snooze needs no duration");
     assert!(!alarm.snooze_enabled);
     assert_eq!(alarm.snooze_minutes, 5);
+}
+
+#[test]
+fn alarm_draft_converts_12_hour_input_to_canonical_time() {
+    let mut draft = AlarmDraft::default();
+    draft.hour = "12".to_owned();
+    draft.minute = "15".to_owned();
+    draft.period = AlarmPeriod::Am;
+
+    assert_eq!(draft.build_with_format(false).unwrap().hour, 0);
+
+    draft.period = AlarmPeriod::Pm;
+    assert_eq!(draft.build_with_format(false).unwrap().hour, 12);
+
+    draft.hour = "07".to_owned();
+    assert_eq!(draft.build_with_format(false).unwrap().hour, 19);
+
+    draft.hour = "00".to_owned();
+    assert!(draft.build_with_format(false).is_none());
+}
+
+#[test]
+fn alarm_draft_reformats_existing_time_without_changing_it() {
+    let midnight = Alarm::new("Midnight", 0, 30).unwrap();
+    let afternoon = Alarm::new("Afternoon", 13, 45).unwrap();
+
+    let midnight_draft = AlarmDraft::from_alarm_with_format(&midnight, false);
+    assert_eq!(midnight_draft.hour, "12");
+    assert_eq!(midnight_draft.period, AlarmPeriod::Am);
+
+    let mut afternoon_draft = AlarmDraft::from_alarm_with_format(&afternoon, false);
+    assert_eq!(afternoon_draft.hour, "1");
+    assert_eq!(afternoon_draft.period, AlarmPeriod::Pm);
+
+    afternoon_draft.reformat_hour(false, true);
+    assert_eq!(afternoon_draft.hour, "13");
+    assert_eq!(afternoon_draft.build_with_format(true).unwrap().hour, 13);
 }
 
 #[test]

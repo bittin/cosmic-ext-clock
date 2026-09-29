@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use crate::{
-    alarms::{Alarm, AlarmDay, AlarmDraft, alarm_should_ring, weekday_order_for_locale},
+    alarms::{
+        Alarm, AlarmDay, AlarmDraft, AlarmPeriod, alarm_should_ring, weekday_order_for_locale,
+    },
     alerts::{
         AlertAction, AlertEvent, AlertSound, AlertSubscriptionEvent, alert_action_subscription,
         close_timer_notification, send_notification,
@@ -16,13 +18,17 @@ use crate::{
     },
 };
 use chrono::{
-    DateTime, Duration as ChronoDuration, FixedOffset, Local, Utc, format::Locale as ChronoLocale,
+    DateTime, Duration as ChronoDuration, FixedOffset, Local, Timelike, Utc,
+    format::Locale as ChronoLocale,
 };
+use cosmic::cosmic_config;
 use cosmic::iced::futures::channel::mpsc::Sender;
 use cosmic::{
     Application, Core, Element, Theme,
     app::context_drawer,
-    cosmic_config::{Config, ConfigGet, ConfigSet},
+    cosmic_config::{
+        Config, ConfigGet, ConfigSet, CosmicConfigEntry, cosmic_config_derive::CosmicConfigEntry,
+    },
     executor,
     iced::{
         Alignment, Background, Border, Length, Shadow, Subscription, mouse,
@@ -47,8 +53,15 @@ use std::{
 const REPOSITORY_URL: &str = "https://github.com/cosmic-utils/cosmic-ext-clock";
 const SUPPORT_URL: &str = "https://github.com/cosmic-utils/cosmic-ext-clock/issues";
 const WEBSITE_URL: &str = "https://cosmic-utils.org";
+const TIME_CONFIG_ID: &str = "com.system76.CosmicAppletTime";
 const APP_ICON: &[u8] =
     include_bytes!("../resources/icons/hicolor/256x256/apps/org.cosmic_utils.clock.png");
+
+#[derive(Clone, CosmicConfigEntry, Debug, Default, Eq, PartialEq)]
+#[version = 1]
+struct TimeConfig {
+    military_time: bool,
+}
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub enum AppTheme {
@@ -155,6 +168,7 @@ pub enum Message {
     ToggleSettings,
     SetAppTheme(usize),
     CosmicThemeChanged,
+    TimeFormatChanged(bool),
     ResetAllSettings,
     OpenCityPicker,
     CloseCityPicker,
@@ -170,6 +184,7 @@ pub enum Message {
     AlarmLabelChanged(String),
     AlarmHourChanged(String),
     AlarmMinuteChanged(String),
+    AlarmPeriodChanged(usize),
     ToggleAlarmRepeat(AlarmDay),
     ToggleAlarmSnooze(bool),
     AlarmSnoozeMinutesChanged(String),
@@ -274,6 +289,7 @@ pub struct ClockApp {
     alarm_hour_id: widget::Id,
     alarm_minute_id: widget::Id,
     locale: String,
+    military_time: bool,
     ringing_alarm: Option<usize>,
     snoozed_alarm: Option<(usize, DateTime<Local>)>,
     alert_sound: AlertSound,
@@ -394,7 +410,13 @@ impl ClockApp {
                 ]
                 .spacing(4)
                 .width(Length::Fill),
-                widget::text(clock.time_text(now)).size(38),
+                widget::text(world_clock_time_text(
+                    clock,
+                    now,
+                    &self.locale,
+                    self.military_time,
+                ))
+                .size(38),
             ]
             .spacing(16)
             .align_y(Alignment::Center);
@@ -431,7 +453,12 @@ impl ClockApp {
 
         let local_time = widget::container(
             column![
-                widget::text(local_time_text(&local_now, &self.locale)).size(56),
+                widget::text(local_time_text(
+                    &local_now,
+                    &self.locale,
+                    self.military_time,
+                ))
+                .size(56),
                 widget::text(local_date_text(&local_now, &self.locale)).size(20),
             ]
             .spacing(4)
@@ -554,7 +581,7 @@ impl ClockApp {
     }
 
     fn alarm_form_view(&self) -> Element<'_, Message> {
-        let time = row![
+        let mut time = row![
             widget::text_input(fl!("alarm-hour"), &self.alarm_draft.hour)
                 .on_input(Message::AlarmHourChanged)
                 .id(self.alarm_hour_id.clone())
@@ -569,6 +596,16 @@ impl ClockApp {
         ]
         .spacing(8)
         .align_y(Alignment::Center);
+        if !self.military_time {
+            time = time.push(
+                widget::dropdown(
+                    alarm_period_options(&self.locale),
+                    Some(self.alarm_draft.period.index()),
+                    Message::AlarmPeriodChanged,
+                )
+                .width(90),
+            );
+        }
 
         let repeat = row![
             widget::text(fl!("alarm-repeat")).width(Length::Fill),
@@ -652,8 +689,11 @@ impl ClockApp {
             let is_snoozed = self
                 .snoozed_alarm
                 .is_some_and(|(snoozed_index, _)| snoozed_index == index);
-            let details =
-                column![widget::text(alarm_entry_summary(alarm)).size(36)].width(Length::Fill);
+            let details = column![
+                widget::text(alarm_entry_summary(alarm, &self.locale, self.military_time,))
+                    .size(36)
+            ]
+            .width(Length::Fill);
             let mut controls = row![
                 widget::toggler(alarm.enabled)
                     .on_toggle(move |enabled| Message::ToggleAlarm(index, enabled))
@@ -725,7 +765,11 @@ impl ClockApp {
                 widget::container(
                     column![
                         widget::text(fl!("alarm-ringing")).size(20),
-                        widget::text(format!("{}: {}", alarm.time_text(), alarm.label)),
+                        widget::text(format!(
+                            "{}: {}",
+                            alarm_entry_summary(alarm, &self.locale, self.military_time),
+                            alarm.label
+                        )),
                         actions,
                     ]
                     .spacing(10),
@@ -997,6 +1041,20 @@ impl Application for ClockApp {
         let now_instant = preview_data
             .as_ref()
             .map_or_else(Instant::now, |preview| preview.now_instant);
+        let time_config = if flags.preview {
+            TimeConfig::default()
+        } else {
+            match Config::new(TIME_CONFIG_ID, TimeConfig::VERSION) {
+                Ok(config) => TimeConfig::get_entry(&config).unwrap_or_else(|(errors, config)| {
+                    tracing::warn!(?errors, "failed to load system time settings");
+                    config
+                }),
+                Err(error) => {
+                    tracing::warn!(%error, "failed to open system time settings");
+                    TimeConfig::default()
+                }
+            }
+        };
         let theme_task = if flags.initial_theme.is_some() {
             cosmic::command::set_theme(state.app_theme.theme())
         } else {
@@ -1027,6 +1085,7 @@ impl Application for ClockApp {
                 alarm_hour_id: widget::Id::unique(),
                 alarm_minute_id: widget::Id::unique(),
                 locale: flags.locale,
+                military_time: time_config.military_time,
                 ringing_alarm: None,
                 snoozed_alarm: None,
                 alert_sound: AlertSound::default(),
@@ -1069,6 +1128,16 @@ impl Application for ClockApp {
         let interval = active_tick_interval(self.stopwatch.is_running(), timer_running);
         let mut subscriptions = vec![cosmic::iced::time::every(interval).map(|_| Message::Tick)];
         subscriptions.push(alert_action_subscription().map(Message::AlertSubscription));
+        subscriptions.push(
+            self.core()
+                .watch_config::<TimeConfig>(TIME_CONFIG_ID)
+                .map(|update| {
+                    if !update.errors.is_empty() {
+                        tracing::warn!(?update.errors, "failed to reload system time settings");
+                    }
+                    Message::TimeFormatChanged(update.config.military_time)
+                }),
+        );
         if is_cosmic_desktop() {
             subscriptions.push(Subscription::batch([
                 self.core()
@@ -1106,7 +1175,7 @@ impl Application for ClockApp {
                         let ringing = alarm.begin_ringing();
                         alert_events.push(AlertEvent::alarm(
                             ringing.label,
-                            ringing.time,
+                            alarm_entry_summary(alarm, &self.locale, self.military_time),
                             ringing.snooze_minutes,
                         ));
                     }
@@ -1118,10 +1187,11 @@ impl Application for ClockApp {
                         .position(|alarm| alarm_should_ring(alarm, self.previous_local, now_local));
                     if let Some(index) = due_alarm {
                         self.ringing_alarm = Some(index);
-                        let ringing = self.alarms[index].begin_ringing();
+                        let alarm = &self.alarms[index];
+                        let ringing = alarm.begin_ringing();
                         alert_events.push(AlertEvent::alarm(
                             ringing.label,
-                            ringing.time,
+                            alarm_entry_summary(alarm, &self.locale, self.military_time),
                             ringing.snooze_minutes,
                         ));
                     }
@@ -1183,6 +1253,13 @@ impl Application for ClockApp {
             }
             Message::CosmicThemeChanged => {
                 return cosmic::command::set_theme(self.app_theme.theme());
+            }
+            Message::TimeFormatChanged(military_time) => {
+                if self.alarm_form_open {
+                    self.alarm_draft
+                        .reformat_hour(self.military_time, military_time);
+                }
+                self.military_time = military_time;
             }
             Message::ResetAllSettings => {
                 self.hovered_collection_tile = None;
@@ -1259,7 +1336,8 @@ impl Application for ClockApp {
                 if let Some(alarm) = self.alarms.get(index) {
                     clear_collection_tile_hover(&mut self.hovered_collection_tile);
                     self.editing_alarm = Some(index);
-                    self.alarm_draft = AlarmDraft::from_alarm(alarm);
+                    self.alarm_draft =
+                        AlarmDraft::from_alarm_with_format(alarm, self.military_time);
                     self.alarm_form_open = true;
                     return widget::text_input::focus(self.alarm_hour_id.clone());
                 }
@@ -1280,6 +1358,11 @@ impl Application for ClockApp {
             Message::AlarmMinuteChanged(value) => {
                 self.alarm_draft.minute = digits_only(value, 2);
             }
+            Message::AlarmPeriodChanged(index) => {
+                if let Some(period) = AlarmPeriod::from_index(index) {
+                    self.alarm_draft.period = period;
+                }
+            }
             Message::ToggleAlarmRepeat(day) => {
                 let selected = !self.alarm_draft.repeat_days().contains(&day);
                 self.alarm_draft.set_repeat_day(day, selected);
@@ -1292,10 +1375,10 @@ impl Application for ClockApp {
             }
             Message::AddAlarm => {
                 let saved = if let Some(index) = self.editing_alarm {
-                    self.alarms
-                        .get_mut(index)
-                        .is_some_and(|alarm| alarm.update_from_draft(&self.alarm_draft))
-                } else if let Some(alarm) = self.alarm_draft.build() {
+                    self.alarms.get_mut(index).is_some_and(|alarm| {
+                        alarm.update_from_draft_with_format(&self.alarm_draft, self.military_time)
+                    })
+                } else if let Some(alarm) = self.alarm_draft.build_with_format(self.military_time) {
                     self.alarms.push(alarm);
                     true
                 } else {
@@ -1647,9 +1730,70 @@ fn chrono_locale(locale: &str) -> ChronoLocale {
     normalized.parse().unwrap_or(ChronoLocale::POSIX)
 }
 
-fn local_time_text(now: &DateTime<FixedOffset>, locale: &str) -> String {
-    now.format_localized("%X", chrono_locale(locale))
-        .to_string()
+fn local_time_text(now: &DateTime<FixedOffset>, locale: &str, military_time: bool) -> String {
+    format_clock_time(now, locale, military_time, true)
+}
+
+fn world_clock_time_text(
+    clock: &WorldClock,
+    now: DateTime<Utc>,
+    locale: &str,
+    military_time: bool,
+) -> String {
+    format_clock_time(
+        &now.with_timezone(&clock.timezone).fixed_offset(),
+        locale,
+        military_time,
+        false,
+    )
+}
+
+fn format_clock_time(
+    now: &DateTime<FixedOffset>,
+    locale: &str,
+    military_time: bool,
+    show_seconds: bool,
+) -> String {
+    let locale = chrono_locale(locale);
+    if military_time {
+        let format = if show_seconds { "%H:%M:%S" } else { "%H:%M" };
+        return now.format_localized(format, locale).to_string();
+    }
+
+    let format = if show_seconds { "%I:%M:%S" } else { "%I:%M" };
+    let period = alarm_period_text(
+        if now.hour() < 12 {
+            AlarmPeriod::Am
+        } else {
+            AlarmPeriod::Pm
+        },
+        locale,
+    );
+    format!("{} {period}", now.format_localized(format, locale))
+}
+
+fn alarm_period_options(locale: &str) -> Vec<String> {
+    let locale = chrono_locale(locale);
+    vec![
+        alarm_period_text(AlarmPeriod::Am, locale),
+        alarm_period_text(AlarmPeriod::Pm, locale),
+    ]
+}
+
+fn alarm_period_text(period: AlarmPeriod, locale: ChronoLocale) -> String {
+    let hour = match period {
+        AlarmPeriod::Am => 1,
+        AlarmPeriod::Pm => 13,
+    };
+    let time = DateTime::<Utc>::from_timestamp(i64::from(hour) * 3_600, 0)
+        .expect("day-period hour must be valid")
+        .fixed_offset();
+    let localized = time.format_localized("%p", locale).to_string();
+    match localized.trim() {
+        "" if period == AlarmPeriod::Am => "AM".to_owned(),
+        "" => "PM".to_owned(),
+        period => period.to_owned(),
+    }
 }
 
 fn local_date_text(now: &DateTime<FixedOffset>, locale: &str) -> String {
@@ -1704,8 +1848,25 @@ pub fn format_duration(duration: Duration, show_millis: bool) -> String {
     }
 }
 
-fn alarm_entry_summary(alarm: &Alarm) -> String {
-    alarm.time_text()
+fn alarm_entry_summary(alarm: &Alarm, locale: &str, military_time: bool) -> String {
+    if military_time {
+        return alarm.time_text();
+    }
+
+    let period = if alarm.hour < 12 {
+        AlarmPeriod::Am
+    } else {
+        AlarmPeriod::Pm
+    };
+    let hour = match alarm.hour % 12 {
+        0 => 12,
+        hour => hour,
+    };
+    format!(
+        "{hour}:{:02} {}",
+        alarm.minute,
+        alarm_period_text(period, chrono_locale(locale))
+    )
 }
 
 fn collection_tile_container(hovered: bool) -> theme::Container<'static> {
@@ -1817,10 +1978,14 @@ mod tests {
     }
 
     #[test]
-    fn alarm_entry_summary_only_contains_the_time() {
-        let alarm = Alarm::new("Morning", 7, 30).expect("valid alarm");
+    fn alarm_entry_summary_uses_the_system_hour_cycle() {
+        let morning = Alarm::new("Morning", 7, 30).expect("valid alarm");
+        let evening = Alarm::new("Evening", 19, 30).expect("valid alarm");
 
-        assert_eq!(alarm_entry_summary(&alarm), "07:30");
+        assert_eq!(alarm_entry_summary(&morning, "en-US", true), "07:30");
+        assert_eq!(alarm_entry_summary(&morning, "en-US", false), "7:30 AM");
+        assert_eq!(alarm_entry_summary(&evening, "en-US", false), "7:30 PM");
+        assert_eq!(alarm_entry_summary(&evening, "fr-BE", false), "7:30 PM");
     }
 
     #[test]
@@ -1883,17 +2048,39 @@ mod tests {
     }
 
     #[test]
-    fn local_clock_text_uses_the_requested_locale() {
+    fn local_clock_text_uses_the_system_hour_cycle_and_locale_date() {
         use chrono::TimeZone;
 
         let now = chrono::FixedOffset::east_opt(5 * 60 * 60 + 30 * 60)
             .unwrap()
             .with_ymd_and_hms(2026, 9, 28, 17, 30, 4)
             .unwrap();
+        let morning = now.with_hour(5).unwrap();
 
-        assert_eq!(local_time_text(&now, "en-US"), "05:30:04 PM");
-        assert_eq!(local_time_text(&now, "de-DE"), "17:30:04");
+        assert_eq!(local_time_text(&now, "en-US", false), "05:30:04 PM");
+        assert_eq!(local_time_text(&now, "en-US", true), "17:30:04");
+        assert_eq!(local_time_text(&now, "fr-BE", false), "05:30:04 PM");
+        assert_eq!(local_time_text(&morning, "fr-BE", false), "05:30:04 AM");
+        assert_eq!(local_date_text(&now, "en-US"), "09/28/2026, Monday");
         assert_eq!(local_date_text(&now, "de-DE"), "28.09.2026, Montag");
+    }
+
+    #[test]
+    fn world_clock_text_uses_the_system_hour_cycle() {
+        use chrono::TimeZone;
+
+        let clock = WorldClock::new("Tokyo", "Asia/Tokyo").unwrap();
+        let now = Utc.with_ymd_and_hms(2026, 1, 15, 12, 30, 0).unwrap();
+
+        assert_eq!(
+            world_clock_time_text(&clock, now, "en-US", false),
+            "09:30 PM"
+        );
+        assert_eq!(world_clock_time_text(&clock, now, "en-US", true), "21:30");
+        assert_eq!(
+            world_clock_time_text(&clock, now, "fr-BE", false),
+            "09:30 PM"
+        );
     }
 
     #[test]
