@@ -601,13 +601,15 @@ impl ClockApp {
             form = form.push(
                 row![
                     widget::text(fl!("alarm-snooze-duration")).width(Length::Fill),
-                    widget::text_input(
-                        fl!("alarm-snooze-minutes"),
+                    widget::spin_button(
                         &self.alarm_draft.snooze_minutes,
-                    )
-                    .on_input(Message::AlarmSnoozeMinutesChanged)
-                    .width(90),
-                    widget::text(fl!("minutes")),
+                        fl!("alarm-snooze-duration"),
+                        self.alarm_draft.snooze_minutes.parse::<u16>().unwrap_or(5),
+                        1,
+                        1,
+                        60,
+                        |minutes| Message::AlarmSnoozeMinutesChanged(minutes.to_string()),
+                    ),
                 ]
                 .spacing(8)
                 .align_y(Alignment::Center),
