@@ -1,7 +1,6 @@
 clock = Clock
-view = View
-menu-settings = Settings
-menu-about = About Clock
+menu-settings = Settings...
+menu-about = About Clock...
 settings-title = Settings
 settings-appearance = Appearance
 settings-theme = Theme

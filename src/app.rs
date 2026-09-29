@@ -29,7 +29,7 @@ use cosmic::{
     widget::{
         self, RcElementWrapper,
         about::About,
-        icon,
+        button, icon,
         menu::{self, ItemHeight, ItemWidth, key_bind::KeyBind},
         nav_bar,
     },
@@ -37,12 +37,8 @@ use cosmic::{
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeSet, HashMap},
-    sync::LazyLock,
     time::{Duration, Instant},
 };
-
-static MENU_ID: LazyLock<cosmic::widget::Id> =
-    LazyLock::new(|| cosmic::widget::Id::new("responsive-menu"));
 
 const REPOSITORY_URL: &str = "https://github.com/cosmic-utils/cosmic-ext-clock";
 const SUPPORT_URL: &str = "https://github.com/cosmic-utils/cosmic-ext-clock/issues";
@@ -224,16 +220,6 @@ impl menu::action::MenuAction for AlarmRepeatAction {
             Self::Toggle(day) => Message::ToggleAlarmRepeat(*day),
         }
     }
-}
-
-fn view_menu() -> (String, Vec<menu::Item<MenuItemAction, String>>) {
-    (
-        fl!("view"),
-        vec![
-            menu::Item::Button(fl!("menu-settings"), None, MenuItemAction::Settings),
-            menu::Item::Button(fl!("menu-about"), None, MenuItemAction::About),
-        ],
-    )
 }
 
 fn about_widget() -> About {
@@ -1407,17 +1393,25 @@ impl Application for ClockApp {
 
     fn header_start(&self) -> Vec<Element<'_, Message>> {
         vec![
-            widget::responsive_menu_bar()
-                .item_height(ItemHeight::Dynamic(40))
-                .item_width(ItemWidth::Uniform(320))
-                .spacing(4.0)
-                .into_element(
-                    &self.core,
+            menu::bar(vec![menu::Tree::with_children(
+                RcElementWrapper::new(Element::from(
+                    button::icon(icon::from_name("open-menu-symbolic"))
+                        .padding([4, 12])
+                        .class(theme::Button::MenuRoot),
+                )),
+                menu::items(
                     &self.menu_key_binds,
-                    MENU_ID.clone(),
-                    Message::Surface,
-                    vec![view_menu()],
+                    vec![
+                        menu::Item::Button(fl!("menu-settings"), None, MenuItemAction::Settings),
+                        menu::Item::Divider,
+                        menu::Item::Button(fl!("menu-about"), None, MenuItemAction::About),
+                    ],
                 ),
+            )])
+            .item_height(ItemHeight::Dynamic(40))
+            .item_width(ItemWidth::Uniform(320))
+            .spacing(4.0)
+            .into(),
         ]
     }
 
