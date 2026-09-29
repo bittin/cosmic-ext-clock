@@ -30,6 +30,7 @@ use cosmic::{
         self, RcElementWrapper,
         about::About,
         button, icon,
+        icon::from_name as symbolic,
         menu::{self, ItemHeight, ItemWidth, key_bind::KeyBind},
         nav_bar,
     },
@@ -901,12 +902,22 @@ impl Application for ClockApp {
         let mut nav_model = nav_bar::Model::default();
         nav_model
             .insert()
+            .icon(symbolic("preferences-time-and-language-symbolic"))
             .text(fl!("world-clocks"))
             .data(Page::WorldClocks);
-        nav_model.insert().text(fl!("alarms")).data(Page::Alarms);
-        nav_model.insert().text(fl!("timers")).data(Page::Timers);
         nav_model
             .insert()
+            .icon(symbolic("alarm-symbolic"))
+            .text(fl!("alarms"))
+            .data(Page::Alarms);
+        nav_model
+            .insert()
+            .icon(symbolic("accessories-clock-symbolic"))
+            .text(fl!("timers"))
+            .data(Page::Timers);
+        nav_model
+            .insert()
+            .icon(symbolic("appointment-soon-symbolic"))
             .text(fl!("stopwatch"))
             .data(Page::Stopwatch);
         nav_model.activate_position(flags.initial_page.min(3));
