@@ -478,12 +478,17 @@ impl ClockApp {
                             widget::text(&clock.name).size(24),
                             widget::text(clock.timezone.name()),
                             row![
-                                widget::button::standard(fl!("cancel"))
-                                    .on_press(Message::CancelWorldClockEdit),
+                                widget::container(
+                                    widget::button::standard(fl!("cancel"))
+                                        .on_press(Message::CancelWorldClockEdit),
+                                )
+                                .width(Length::Fill)
+                                .align_x(Alignment::End),
                                 widget::button::destructive(fl!("remove"))
                                     .on_press(Message::RemoveWorldClock(index)),
                             ]
-                            .spacing(8),
+                            .spacing(8)
+                            .align_y(Alignment::Center),
                         ]
                         .spacing(16),
                     )
@@ -652,16 +657,23 @@ impl ClockApp {
                 .align_y(Alignment::Center),
             );
         }
-        let mut actions = row![
-            widget::button::standard(fl!("cancel")).on_press(Message::CancelAlarmForm),
-            widget::button::suggested(fl!("alarm-save")).on_press(Message::AddAlarm),
-        ]
-        .spacing(8);
+        let mut right_actions = row![].spacing(8).align_y(Alignment::Center);
         if let Some(index) = self.editing_alarm {
-            actions = actions.push(
+            right_actions = right_actions.push(
                 widget::button::destructive(fl!("remove")).on_press(Message::RemoveAlarm(index)),
             );
         }
+        right_actions =
+            right_actions.push(widget::button::suggested(fl!("save")).on_press(Message::AddAlarm));
+        let actions = row![
+            widget::container(
+                widget::button::standard(fl!("cancel")).on_press(Message::CancelAlarmForm),
+            )
+            .width(Length::Fill),
+            right_actions,
+        ]
+        .spacing(8)
+        .align_y(Alignment::Center);
         form = form.push(actions);
 
         widget::container(form)
@@ -876,10 +888,6 @@ impl ClockApp {
                 TimerFormMode::New => fl!("timer-new"),
                 TimerFormMode::Edit => fl!("timer-edit"),
             };
-            let save_label = match mode {
-                TimerFormMode::New => fl!("add-timer"),
-                TimerFormMode::Edit => fl!("timer-save"),
-            };
             let inputs = row![
                 widget::text_input(fl!("timer-label"), &self.timer_label)
                     .on_input(Message::TimerLabelChanged)
@@ -893,19 +901,26 @@ impl ClockApp {
             ]
             .spacing(10)
             .align_y(Alignment::Center);
-            let mut actions = row![
-                widget::button::standard(fl!("cancel")).on_press(Message::CancelTimerForm),
-                widget::button::suggested(save_label).on_press(Message::AddTimer),
-            ]
-            .spacing(8);
+            let mut right_actions = row![].spacing(8).align_y(Alignment::Center);
             if let Some(timer_id) = self.editing_timer
                 && let Some(index) = self.timers.iter().position(|timer| timer.id() == timer_id)
             {
-                actions = actions.push(
+                right_actions = right_actions.push(
                     widget::button::destructive(fl!("remove"))
                         .on_press(Message::RemoveTimer(index)),
                 );
             }
+            right_actions = right_actions
+                .push(widget::button::suggested(fl!("save")).on_press(Message::AddTimer));
+            let actions = row![
+                widget::container(
+                    widget::button::standard(fl!("cancel")).on_press(Message::CancelTimerForm),
+                )
+                .width(Length::Fill),
+                right_actions,
+            ]
+            .spacing(8)
+            .align_y(Alignment::Center);
             let form = column![widget::text::heading(title), inputs, actions,].spacing(16);
             content = content.push(
                 widget::container(form)
