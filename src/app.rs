@@ -12,9 +12,12 @@ use crate::{
     timers::{Timer, TimerId, TimerStatus},
     world_clocks::{
         WorldClock, city_catalog, format_utc_offset, initial_world_clocks, preview_timestamp,
+        relative_day_offset, relative_offset_minutes,
     },
 };
-use chrono::{DateTime, Duration as ChronoDuration, Local, Utc};
+use chrono::{
+    DateTime, Duration as ChronoDuration, FixedOffset, Local, Utc, format::Locale as ChronoLocale,
+};
 use cosmic::iced::futures::channel::mpsc::Sender;
 use cosmic::{
     Application, Core, Element, Theme,
@@ -357,16 +360,26 @@ impl ClockApp {
 
     fn world_clocks_view(&self) -> Element<'_, Message> {
         let now = self.now_utc;
+        let local_now = reference_time(now, self.preview);
+        let local_offset_seconds = local_now.offset().local_minus_utc();
+        let local_date = local_now.date_naive();
         let mut clocks = column![].spacing(12);
         for (index, clock) in self.world_clocks.iter().enumerate() {
+            let mut details = vec![relative_offset_text(relative_offset_minutes(
+                now,
+                clock.timezone,
+                local_offset_seconds,
+            ))];
+            if let Some(relative_day) =
+                relative_day_text(relative_day_offset(now, clock.timezone, local_date))
+            {
+                details.push(relative_day);
+            }
+            details.push(format_utc_offset(clock.offset_seconds(now)));
             let card = row![
                 column![
                     widget::text(&clock.name).size(20),
-                    widget::text(format!(
-                        "{}, {}",
-                        clock.date_text(now),
-                        format_utc_offset(clock.offset_seconds(now))
-                    )),
+                    widget::text(details.join(", ")),
                 ]
                 .spacing(4)
                 .width(Length::Fill),
@@ -397,7 +410,19 @@ impl ClockApp {
         ]
         .align_y(Alignment::Center);
 
-        let mut page = column![header].spacing(20);
+        let local_time = widget::container(
+            column![
+                widget::text(local_time_text(&local_now, &self.locale)).size(56),
+                widget::text(local_date_text(&local_now, &self.locale)).size(20),
+            ]
+            .spacing(4)
+            .align_x(Alignment::Center),
+        )
+        .width(Length::Fill)
+        .center_x(Length::Fill)
+        .padding([16, 0]);
+
+        let mut page = column![header, local_time].spacing(20);
         if let Some(index) = self.editing_world_clock {
             if let Some(clock) = self.world_clocks.get(index) {
                 page = page.push(
@@ -1536,6 +1561,64 @@ fn filtered_city_indices(query: &str) -> Vec<usize> {
         .collect()
 }
 
+fn reference_time(now: DateTime<Utc>, preview: bool) -> DateTime<FixedOffset> {
+    if preview {
+        now.with_timezone(&chrono_tz::Asia::Kolkata).fixed_offset()
+    } else {
+        now.with_timezone(&Local).fixed_offset()
+    }
+}
+
+fn chrono_locale(locale: &str) -> ChronoLocale {
+    let normalized = locale
+        .split(['.', '@'])
+        .next()
+        .unwrap_or(locale)
+        .replace('-', "_");
+    normalized.parse().unwrap_or(ChronoLocale::POSIX)
+}
+
+fn local_time_text(now: &DateTime<FixedOffset>, locale: &str) -> String {
+    now.format_localized("%X", chrono_locale(locale))
+        .to_string()
+}
+
+fn local_date_text(now: &DateTime<FixedOffset>, locale: &str) -> String {
+    now.format_localized("%x, %A", chrono_locale(locale))
+        .to_string()
+}
+
+fn relative_offset_text(minutes: i32) -> String {
+    if minutes == 0 {
+        return fl!("world-clock-same-time");
+    }
+
+    let sign = if minutes < 0 { "-" } else { "+" };
+    let total_minutes = minutes.unsigned_abs();
+    let hours = total_minutes / 60;
+    let minutes = total_minutes % 60;
+    if minutes == 0 {
+        fl!("world-clock-relative-hours", sign = sign, hours = hours)
+    } else {
+        fl!(
+            "world-clock-relative-hours-minutes",
+            sign = sign,
+            hours = hours,
+            minutes = minutes
+        )
+    }
+}
+
+fn relative_day_text(day_offset: i64) -> Option<String> {
+    match day_offset {
+        -1 => Some(fl!("yesterday")),
+        0 => None,
+        1 => Some(fl!("tomorrow")),
+        days if days < 0 => Some(fl!("world-clock-days-earlier", days = days.unsigned_abs())),
+        days => Some(fl!("world-clock-days-later", days = days.unsigned_abs())),
+    }
+}
+
 #[must_use]
 pub fn format_duration(duration: Duration, show_millis: bool) -> String {
     let total_seconds = duration.as_secs();
@@ -1634,6 +1717,37 @@ mod tests {
 
         let america = filtered_city_indices("america/");
         assert!(america.len() >= 4);
+    }
+
+    #[test]
+    fn world_clock_offset_text_is_relative_to_local_time() {
+        let visible = |text: String| text.replace(['\u{2068}', '\u{2069}'], "");
+
+        assert_eq!(visible(relative_offset_text(-690)), "-11h 30m");
+        assert_eq!(visible(relative_offset_text(-180)), "-3h");
+        assert_eq!(relative_offset_text(0), "Same time");
+        assert_eq!(visible(relative_offset_text(210)), "+3h 30m");
+    }
+
+    #[test]
+    fn world_clock_day_text_only_appears_when_the_calendar_day_differs() {
+        assert_eq!(relative_day_text(-1), Some("yesterday".to_owned()));
+        assert_eq!(relative_day_text(0), None);
+        assert_eq!(relative_day_text(1), Some("tomorrow".to_owned()));
+    }
+
+    #[test]
+    fn local_clock_text_uses_the_requested_locale() {
+        use chrono::TimeZone;
+
+        let now = chrono::FixedOffset::east_opt(5 * 60 * 60 + 30 * 60)
+            .unwrap()
+            .with_ymd_and_hms(2026, 9, 28, 17, 30, 4)
+            .unwrap();
+
+        assert_eq!(local_time_text(&now, "en-US"), "05:30:04 PM");
+        assert_eq!(local_time_text(&now, "de-DE"), "17:30:04");
+        assert_eq!(local_date_text(&now, "de-DE"), "28.09.2026, Montag");
     }
 
     #[test]

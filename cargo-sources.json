@@ -5427,6 +5427,19 @@
     {
         "type": "archive",
         "archive-type": "tar-gzip",
+        "url": "https://static.crates.io/crates/pure-rust-locales/pure-rust-locales-0.8.2.crate",
+        "sha256": "869675ad2d7541aea90c6d88c81f46a7f4ea9af8cd0395d38f11a95126998a0d",
+        "dest": "cargo/vendor/pure-rust-locales-0.8.2"
+    },
+    {
+        "type": "inline",
+        "contents": "{\"package\": \"869675ad2d7541aea90c6d88c81f46a7f4ea9af8cd0395d38f11a95126998a0d\", \"files\": {}}",
+        "dest": "cargo/vendor/pure-rust-locales-0.8.2",
+        "dest-filename": ".cargo-checksum.json"
+    },
+    {
+        "type": "archive",
+        "archive-type": "tar-gzip",
         "url": "https://static.crates.io/crates/pxfm/pxfm-0.1.30.crate",
         "sha256": "d55d956fa96f5ec02be2e13af0e20391a5aa83d6a074e3ad368959d0fab299ea",
         "dest": "cargo/vendor/pxfm-0.1.30"
