@@ -131,6 +131,7 @@ enum Page {
 enum ContextPage {
     About,
     Settings,
+    CityPicker,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -279,7 +280,6 @@ pub struct ClockApp {
     now_instant: Instant,
     world_clocks: Vec<WorldClock>,
     editing_world_clock: Option<usize>,
-    city_picker_open: bool,
     city_search: String,
     city_search_id: widget::Id,
     alarms: Vec<Alarm>,
@@ -377,6 +377,43 @@ impl ClockApp {
             .title(fl!("settings-title"))
     }
 
+    fn city_picker_drawer(&self) -> context_drawer::ContextDrawer<'_, Message> {
+        let filtered_cities = filtered_city_indices(&self.city_search);
+        let mut cities = widget::list_column();
+        for city_index in &filtered_cities {
+            let (name, timezone) = &city_catalog()[*city_index];
+            let already_added = self
+                .world_clocks
+                .iter()
+                .any(|clock| clock.timezone.name() == *timezone);
+            let action = widget::button::text(if already_added {
+                fl!("city-added")
+            } else {
+                fl!("add")
+            })
+            .on_press_maybe((!already_added).then_some(Message::AddWorldClock(*city_index)));
+            cities = cities.add(
+                widget::settings::item::builder(name)
+                    .description(*timezone)
+                    .control(action),
+            );
+        }
+
+        let content: Element<'_, Message> = if filtered_cities.is_empty() {
+            widget::text(fl!("city-search-empty")).into()
+        } else {
+            cities.into()
+        };
+        let search = widget::text_input::search_input(fl!("search-cities"), &self.city_search)
+            .on_input(Message::CitySearchChanged)
+            .on_clear(Message::ClearCitySearch)
+            .id(self.city_search_id.clone());
+
+        context_drawer::context_drawer(content, Message::CloseCityPicker)
+            .title(fl!("choose-city"))
+            .header(search)
+    }
+
     fn page(&self) -> Page {
         self.nav_model
             .active_data::<Page>()
@@ -469,86 +506,33 @@ impl ClockApp {
         .padding([16, 0]);
 
         let mut page = column![header, local_time].spacing(20);
-        if let Some(index) = self.editing_world_clock {
-            if let Some(clock) = self.world_clocks.get(index) {
-                page = page.push(
-                    widget::container(
-                        column![
-                            widget::text::heading(fl!("world-clock-edit")),
-                            widget::text(&clock.name).size(24),
-                            widget::text(clock.timezone.name()),
-                            row![
-                                widget::container(
-                                    widget::button::standard(fl!("cancel"))
-                                        .on_press(Message::CancelWorldClockEdit),
-                                )
-                                .width(Length::Fill)
-                                .align_x(Alignment::End),
-                                widget::button::destructive(fl!("remove"))
-                                    .on_press(Message::RemoveWorldClock(index)),
-                            ]
-                            .spacing(8)
-                            .align_y(Alignment::Center),
-                        ]
-                        .spacing(16),
-                    )
-                    .padding(20)
-                    .width(Length::Fill)
-                    .class(theme::Container::Card),
-                );
-            }
-        } else if self.city_picker_open {
-            let mut cities = column![].spacing(8);
-            for city_index in filtered_city_indices(&self.city_search) {
-                let (name, timezone) = &city_catalog()[city_index];
-                let already_added = self
-                    .world_clocks
-                    .iter()
-                    .any(|clock| clock.timezone.name() == *timezone);
-                let action: Element<'_, Message> = if already_added {
-                    widget::text(fl!("city-added")).into()
-                } else {
-                    widget::button::standard(fl!("add"))
-                        .on_press(Message::AddWorldClock(city_index))
-                        .into()
-                };
-                cities = cities.push(
-                    widget::container(
-                        row![
-                            column![widget::text(name).size(18), widget::text(*timezone)]
-                                .spacing(2)
-                                .width(Length::Fill),
-                            action,
-                        ]
-                        .spacing(12)
-                        .align_y(Alignment::Center),
-                    )
-                    .padding(12)
-                    .width(Length::Fill)
-                    .class(theme::Container::Card),
-                );
-            }
-            if filtered_city_indices(&self.city_search).is_empty() {
-                cities = cities.push(widget::text(fl!("city-search-empty")));
-            }
-            let picker = column![
-                row![
-                    widget::text::heading(fl!("choose-city")).width(Length::Fill),
-                    widget::button::standard(fl!("close")).on_press(Message::CloseCityPicker),
-                ]
-                .align_y(Alignment::Center),
-                widget::text_input::search_input(fl!("search-cities"), &self.city_search)
-                    .on_input(Message::CitySearchChanged)
-                    .on_clear(Message::ClearCitySearch)
-                    .id(self.city_search_id.clone()),
-                cities,
-            ]
-            .spacing(12);
+        if let Some(index) = self.editing_world_clock
+            && let Some(clock) = self.world_clocks.get(index)
+        {
             page = page.push(
-                widget::container(picker)
-                    .padding(16)
-                    .width(Length::Fill)
-                    .class(theme::Container::Card),
+                widget::container(
+                    column![
+                        widget::text::heading(fl!("world-clock-edit")),
+                        widget::text(&clock.name).size(24),
+                        widget::text(clock.timezone.name()),
+                        row![
+                            widget::container(
+                                widget::button::standard(fl!("cancel"))
+                                    .on_press(Message::CancelWorldClockEdit),
+                            )
+                            .width(Length::Fill)
+                            .align_x(Alignment::End),
+                            widget::button::destructive(fl!("remove"))
+                                .on_press(Message::RemoveWorldClock(index)),
+                        ]
+                        .spacing(8)
+                        .align_y(Alignment::Center),
+                    ]
+                    .spacing(16),
+                )
+                .padding(20)
+                .width(Length::Fill)
+                .class(theme::Container::Card),
             );
         }
 
@@ -1090,7 +1074,6 @@ impl Application for ClockApp {
                 now_instant,
                 world_clocks: state.world_clocks,
                 editing_world_clock: None,
-                city_picker_open: false,
                 city_search: String::new(),
                 city_search_id: widget::Id::unique(),
                 alarms: state.alarms,
@@ -1128,6 +1111,10 @@ impl Application for ClockApp {
 
     fn on_nav_select(&mut self, id: nav_bar::Id) -> cosmic::app::Task<Self::Message> {
         clear_collection_tile_hover(&mut self.hovered_collection_tile);
+        if self.context_page == ContextPage::CityPicker {
+            self.core.window.show_context = false;
+            self.city_search.clear();
+        }
         self.nav_model.activate(id);
         cosmic::app::Task::none()
     }
@@ -1292,13 +1279,16 @@ impl Application for ClockApp {
             Message::OpenCityPicker => {
                 clear_collection_tile_hover(&mut self.hovered_collection_tile);
                 self.editing_world_clock = None;
-                self.city_picker_open = true;
+                self.context_page = ContextPage::CityPicker;
+                self.core.window.show_context = true;
                 self.city_search.clear();
                 return widget::text_input::focus(self.city_search_id.clone());
             }
             Message::CloseCityPicker => {
                 clear_collection_tile_hover(&mut self.hovered_collection_tile);
-                self.city_picker_open = false;
+                if self.context_page == ContextPage::CityPicker {
+                    self.core.window.show_context = false;
+                }
                 self.city_search.clear();
             }
             Message::CitySearchChanged(value) => {
@@ -1319,8 +1309,6 @@ impl Application for ClockApp {
                 {
                     clear_collection_tile_hover(&mut self.hovered_collection_tile);
                     self.world_clocks.push(clock);
-                    self.city_picker_open = false;
-                    self.city_search.clear();
                     self.save();
                 }
             }
@@ -1328,7 +1316,10 @@ impl Application for ClockApp {
                 if index < self.world_clocks.len() {
                     clear_collection_tile_hover(&mut self.hovered_collection_tile);
                     self.editing_world_clock = Some(index);
-                    self.city_picker_open = false;
+                    if self.context_page == ContextPage::CityPicker {
+                        self.core.window.show_context = false;
+                        self.city_search.clear();
+                    }
                 }
             }
             Message::CancelWorldClockEdit => self.editing_world_clock = None,
@@ -1591,6 +1582,7 @@ impl Application for ClockApp {
                 Message::ToggleAbout,
             ),
             ContextPage::Settings => self.settings_drawer(),
+            ContextPage::CityPicker => self.city_picker_drawer(),
         })
     }
 
