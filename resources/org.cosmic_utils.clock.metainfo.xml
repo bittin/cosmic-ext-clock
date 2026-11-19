@@ -3,9 +3,11 @@
   <id>org.cosmic_utils.clock</id>
   <name>Clock</name>
   <name xml:lang="cs">Hodiny</name>
+  <name xml:lang="de">Uhr</name>
   <name xml:lang="sv">Klocka</name>
   <summary>A polished clock for COSMIC desktops and phones</summary>
   <summary xml:lang="cs">Vyladěné hodiny pro počítače s prostředím COSMIC a mobilní telefony</summary>
+  <summary xml:lang="de">Eine elegante Uhr für COSMIC-Desktops und -Telefone</summary>
   <summary xml:lang="sv">En elegant klocka för COSMIC-skrivbord och telefoner</summary>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>GPL-3.0-only</project_license>
@@ -15,6 +17,7 @@
   <description>
     <p>Clock combines international times, local alarms, multiple timers, and a precise stopwatch in a responsive libcosmic interface.</p>
     <p xml:lang="cs">Aplikace Hodiny kombinuje světové časy, místní budíky, více časovačů a přesné stopky v responzivním rozhraní libcosmic.</p>
+    <p xml:lang="de">Clock kombiniert internationale Zeiten, lokale Alarme, mehrere Timer und eine präzise Stoppuhr in einer reaktionsschnellen libcosmic-Oberfläche.</p>
     <p xml:lang="sv">Klockan kombinerar internationella tider, lokala alarm, flera timers och ett exakt stoppur i ett responsivt libcosmic-gränssnitt.</p>
   </description>
   <launchable type="desktop-id">org.cosmic_utils.clock.desktop</launchable>
@@ -29,48 +32,56 @@
       <image>https://media.githubusercontent.com/media/cosmic-utils/cosmic-ext-clock/main/preview/preview-001.png</image>
       <caption>Four world clocks on a desktop</caption>
       <caption xml:lang="cs">Čtyři světové hodiny na počítači</caption>
+      <caption xml:lang="de">Vier Weltzeituhren auf dem Desktop</caption>
       <caption xml:lang="sv">Fyra världsklockor på en dator</caption>
     </screenshot>
     <screenshot>
       <image>https://media.githubusercontent.com/media/cosmic-utils/cosmic-ext-clock/main/preview/preview-002.png</image>
       <caption>Four world clocks on a Linux phone</caption>
       <caption xml:lang="cs">Čtyři světové hodiny na telefonu s Linuxem</caption>
+      <caption xml:lang="de">Vier Weltzeituhren auf einem Linux-Telefon</caption>
       <caption xml:lang="sv">Fyra världsklockor på en Linux telefon</caption>
     </screenshot>
     <screenshot>
       <image>https://media.githubusercontent.com/media/cosmic-utils/cosmic-ext-clock/main/preview/preview-003.png</image>
       <caption>A populated alarm list on a desktop</caption>
       <caption xml:lang="cs">Seznam budíků na počítači</caption>
+      <caption xml:lang="de">Eine gefüllte Alarmliste auf einem Desktop</caption>
       <caption xml:lang="sv">En ifylld alarmlista på en dator</caption>
     </screenshot>
     <screenshot>
       <image>https://media.githubusercontent.com/media/cosmic-utils/cosmic-ext-clock/main/preview/preview-004.png</image>
       <caption>A populated alarm list on a Linux phone</caption>
       <caption xml:lang="cs">Seznam budíků na telefonu s Linuxem</caption>
+      <caption xml:lang="de">Eine gefüllte Alarmliste auf einem Linux-Telefon</caption>
       <caption xml:lang="sv">En ifylld alarmlista på en Linux telefon</caption>
     </screenshot>
     <screenshot>
       <image>https://media.githubusercontent.com/media/cosmic-utils/cosmic-ext-clock/main/preview/preview-005.png</image>
       <caption>Ready, paused, and running timers on a desktop</caption>
       <caption xml:lang="cs">Připravené, pozastavené a běžící časovače na počítači</caption>
+      <caption xml:lang="de">Bereite, pausierte und laufende Timer auf einem Desktop</caption>
       <caption xml:lang="sv">Timrar i lägena redo, pausad och körs på en dator</caption>
     </screenshot>
     <screenshot>
       <image>https://media.githubusercontent.com/media/cosmic-utils/cosmic-ext-clock/main/preview/preview-006.png</image>
       <caption>Ready, paused, and running timers on a Linux phone</caption>
       <caption xml:lang="cs">Připravené, pozastavené a běžící časovače na telefonu s Linuxem</caption>
+      <caption xml:lang="de">Bereite, pausierte und laufende Timer auf einem Linux-Telefon</caption>
       <caption xml:lang="sv">Timrar i lägena redo, pausad och körs på en Linux telefon</caption>
     </screenshot>
     <screenshot>
       <image>https://media.githubusercontent.com/media/cosmic-utils/cosmic-ext-clock/main/preview/preview-007.png</image>
       <caption>A stopwatch with recorded laps on a desktop</caption>
       <caption xml:lang="cs">Stopky se zaznamenanými koly na počítači</caption>
+      <caption xml:lang="de">Eine Stoppuhr mit aufgezeichneten Runden auf einem Desktop</caption>
       <caption xml:lang="sv">Ett stoppur med registrerade varv på en dator</caption>
     </screenshot>
     <screenshot>
       <image>https://media.githubusercontent.com/media/cosmic-utils/cosmic-ext-clock/main/preview/preview-008.png</image>
       <caption>A stopwatch with recorded laps on a Linux phone</caption>
       <caption xml:lang="cs">Stopky se zaznamenanými koly na telefonu s Linuxem</caption>
+      <caption xml:lang="de">Eine Stoppuhr mit aufgezeichneten Runden auf einem Linux-Telefon</caption>
       <caption xml:lang="sv">Ett stoppur med registrerade varv på en Linux telefon</caption>
     </screenshot>
   </screenshots>

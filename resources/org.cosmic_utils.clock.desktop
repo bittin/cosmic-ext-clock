@@ -1,12 +1,15 @@
 [Desktop Entry]
 Name=Clock
 Name[cs]=Hodiny
+Name[de]=Uhr
 Name[sv]=Klocka
 Comment=Track time around the world with alarms, timers, and a stopwatch
 Comment[cs]=Sledujte čas po celém světě pomocí budíků, časovačů a stopek
+Comment[de]=Zeiten rund um die Welt messen mit Weckern, Timern und einer Stoppuhr
 Comment[sv]=Spåra tiden runt om i världen med alarm, timers och stoppur
 Keywords=clock;world clock;alarm;timer;stopwatch;time;timezone;
 Keywords[cs]=hodiny;světové hodiny;budík;časovač;stopky;čas;časové pásmo;
+Keywords[de]=Uhr;Weltzeituhr;Alarm;Timer;Stoppuhr;Zeit;Zeitzone;
 Keywords[sv]=klocka;världsklocka;väckarklocka;timer;tidtagarur;tid;tidszon;
 Exec=clock
 Icon=org.cosmic_utils.clock
